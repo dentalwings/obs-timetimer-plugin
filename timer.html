@@ -1,0 +1,311 @@
+<html>
+
+<head>
+  <title>CSS3 Animation Text</title>
+  <script src="https://unpkg.com/vue"></script>
+  <style>
+    @font-face {
+      font-family: digital;
+      src: url("C:/Users/admin/AppData/Local/Microsoft/Windows/Fonts/TickingTimebombBB.ttf");
+    }
+
+    main {
+      margin: 50 auto;
+      position: relative;
+      /* width: 1280px; */
+      /* height: 720px; */
+      overflow: hidden;
+    }
+
+    .control {
+      position: fixed;
+      top: 80px;
+      right: 1px;
+      width: 310px;
+      /* height: 100px; */
+      border: 3px solid #73AD21;
+    }
+
+    .control button {
+      font-size: 2em;
+    }
+
+    html,
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      position: relative;
+    }
+
+    circle {
+      transform: scaleX(-1) rotate(-90deg);
+      transform-origin: center;
+      transition: stroke 2s linear;
+      /* fill:none; */
+      fill: rgb(231, 232, 243);
+      fill-opacity: 0;
+    }
+
+    use.elapsed {
+      stroke: gray;
+    }
+
+    use.normal {
+      stroke: rgb(65, 184, 131);
+      transition: stroke 2s linear;
+    }
+
+    use.hurried {
+      stroke: orange;
+      transition: stroke 2s linear;
+    }
+
+    use.rushed {
+      stroke: red;
+      transition: stroke 2s linear;
+    }
+
+    .finished {
+      fill: red;
+      fill-opacity: 100%;
+      color: white;
+    }
+
+    text.time {
+      font-family: 'digital', 'Lucida Sans Unicode', monospace;
+      font-size: 24pt;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="example"></div>
+
+
+  <script>
+    const ProgressRing = Vue.component('progress-ring', {
+      props: {
+        radius: Number,
+        timeLeft: Number,
+        timeTotal: Number,
+        stroke: Number
+      },
+      data() {
+        const normalizedRadius = this.radius - this.stroke * 2;
+        const circumference = normalizedRadius * 2 * Math.PI;
+
+        return {
+          normalizedRadius,
+          circumference
+        };
+      },
+      computed: {
+        progress() {
+          return `${this.timeLeft / this.timeTotal * this.circumference} ${this.circumference}`
+        },
+        debug() {
+          return "";
+        },
+        formattedTimeLeft() {
+          if (this.timeLeft <= -10) {
+            seconds_left = Math.ceil(-this.timeLeft) % 60
+            if (seconds_left < 10)
+              seconds_left = "0" + seconds_left
+            return "<tspan x=51% dy=\"-.4em\">Overtime:</tspan>\
+            <tspan x=50% dy=\"+1em\">"+Math.floor((-this.timeLeft + 1) / 60) + ":" + seconds_left+"</tspan>";
+          }
+          if (this.timeLeft <= 0.01)
+            return "Finished !";
+          seconds_left = Math.ceil(this.timeLeft) % 60
+          if (seconds_left < 10)
+            seconds_left = "0" + seconds_left
+          return Math.floor((this.timeLeft + 1) / 60) + ":" + seconds_left;
+        },
+        rushState() {
+          if (this.timeLeft == 0)
+            return "finished"
+          if (this.timeLeft < this.timeTotal / 4)
+            return "rushed"
+          if (this.timeLeft < this.timeTotal / 2)
+            return "hurried"
+          return "normal"
+        },
+      },
+      template: `
+      <svg
+        :height="radius * 2"
+        :width="radius * 2"
+       >
+        <defs>
+          <filter id="whiteOutlineEffect" color-interpolation-filters="sRGB">
+            <feMorphology in="SourceAlpha" result="MORPH" operator="dilate" radius="1.5" />
+            <feColorMatrix in="MORPH" result="WHITENED" type="matrix" values="-1 0 0 0 1, 0 -1 0 0 1, 0 0 -1 0 1, 0 0 0 1 0"/>
+            <feMerge>
+              <feMergeNode in="WHITENED"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <circle
+                id="42"
+                :stroke-width="stroke"
+                :r="normalizedRadius"
+                :cx="radius"
+                :cy="radius"
+            />
+            <clipPath id="clip">
+                <use xlink:href="#42"/>
+            </clipPath>
+        </defs>
+        <g>
+            <use id="already-done" xlink:href="#42" clip-path="url(#clip)" class="elapsed" />
+            <use id="in-progress" xlink:href="#42" clip-path="url(#clip)" :stroke-dasharray="progress" :class="rushState"/>
+            <text x="50%" y="50%" 
+              text-anchor="middle" 
+              dominant-baseline="middle"
+              class=time
+              filter="url(#whiteOutlineEffect)"
+              :class="rushState" v-html="formattedTimeLeft"/>
+        </g>
+       </svg>
+    `
+    });
+
+    vue = new Vue({
+      el: '#example',
+      components: {
+        'progress-ring': ProgressRing
+      },
+      data: {
+        visible: false,
+        timeLeft: 0,
+        timeTotal: 10, // in seconds
+        debugMsg: "gloubi",
+        speed: 50,             // refresh rate, in ms
+        timerInterval:null
+      },
+      computed: {
+        increment: function () { return this.speed / 1000 }
+      },
+      watch: {
+        timeLeft(newValue) {
+          this.debugMsg = "timeLeft: " + newValue
+          if (newValue <= 0.01) {
+            this.onTimesUp();
+          }
+        }
+      },
+      methods: {
+        onTimesUp() {
+          this.debugMsg = "Finished !"
+        },
+
+        startTimer() {
+          this.visible = true
+          if (!this.timerInterval)
+            this.play()
+        },
+
+        start(time) {
+          this.timeTotal = time
+          this.timeLeft = this.timeTotal
+          this.startTimer()
+        },
+
+        showOrHide() {
+          if (this.visible)
+            return "Hide"
+          return "Show"
+        },
+
+        playOrPause() {
+          if (this.timerInterval!=null)
+            return "⏸"
+          return "⏵"
+        },
+
+        toggleVisibility() {
+          this.visible = !this.visible
+        },
+
+        togglePlay() {
+          if (this.timerInterval)
+            this.pause()
+          else
+            this.play()
+        },
+        play() {
+          this.timerInterval = setInterval(() => (this.timeLeft -= this.increment), this.speed);
+        },
+        pause() {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        },
+        stop() {
+          this.pause()
+          this.timeLeft = this.timeTotal
+        },
+        endAt(hour, minute, duration) {
+          if(!duration) {
+            const start_date = new Date();
+            const end_date = new Date();
+            end_date.setHours(hour)
+            end_date.setMinutes(minute)
+            duration = (end_date-start_date) / 60000
+            if(start_date>end_date)
+              duration += 24*60
+          }
+          const date = new Date();
+          const hoursleft = (hour - date.getHours()) % 24
+          const minutesleft = (minute - date.getMinutes()) % 60 - 1
+          this.timeLeft = 60 - date.getSeconds() + minutesleft * 60 + hoursleft * 60 * 60
+          this.timeTotal = duration * 60
+          this.startTimer()
+        }
+
+
+      },
+      template: `
+      <div>
+        <progress-ring v-show="visible" :radius=150 :timeLeft="timeLeft" :timeTotal="timeTotal" :stroke=30 ></progress-ring>
+        <div class="control">
+          <button @click="togglePlay">{{playOrPause()}}</button>
+          <button @click="stop">⏹</button>
+          <button @click="toggleVisibility">{{showOrHide()}}</button>
+          <br/>
+          <br/>
+          <button @click="start(3600)">1h</button>
+          <button @click="start(1800)">30 min</button>
+          <button @click="start(900)">15 min</button>
+          <br/>
+          <br/>
+          <button @click="start(600)">10 min</button>
+          <button @click="start(420)">7 min</button>
+          <button @click="start(300)">5 min</button>
+          <button @click="start(120)">2 min</button>
+          <button @click="start(60)">1 min</button>
+          <button @click="start(3)">3 s</button>
+          <br/>
+          <br/>
+          <button @click="endAt(9,30,30)">9:30</button>
+          <button @click="endAt(10,30,30)">10:30</button>
+          <button @click="endAt(11,00,60)">11:00</button>
+          <button @click="endAt(11,00,30)">11:00 (30 min)</button>
+          <button @click="endAt(12,00,60)">12:00</button>
+          <button @click="endAt(13,30,30)">13:30</button>
+          <button @click="endAt(14,30)">14:30</button>
+          <button @click="endAt(22,30,120)">21:30</button>
+          <button @click="endAt(21,40,3)">21:30</button>
+        </div>
+
+      </div>
+    `
+    });
+  </script>
+
+
+</body>
+
+</html>
